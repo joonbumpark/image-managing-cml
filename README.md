@@ -102,6 +102,28 @@ imgedit crop art.png --auto --bg-color "#ffffff" --tolerance 5
 
 `--box`, `--size`, `--auto` 중 정확히 하나만 지정해야 합니다.
 
+### `trim` — 투명/여백을 딱 맞게 줄이기
+
+캔버스는 512x512인데 실제 이미지 내용은 가운데 300x300뿐이고 나머지가
+투명(또는 단색)인 경우, 그 여백을 잘라내고 실제 내용 크기(300x300)에
+딱 맞게 줄여줍니다. `crop --auto`와 같은 로직을 쓰는 전용 단축 명령입니다.
+
+```bash
+imgedit trim art.png
+imgedit trim art.png --padding 8
+imgedit trim art.png --bg-color "#ffffff" --tolerance 5
+```
+
+옵션:
+
+| 옵션 | 설명 |
+| --- | --- |
+| `-o, --output PATH` | 출력 경로. 기본값은 `<입력파일명>.trim<확장자>` |
+| `--bg-color HEX` | 여백으로 간주할 배경색 (기본: 투명 픽셀, 없으면 좌상단 코너 색) |
+| `--tolerance` | 여백으로 간주할 색상 거리 허용치 (%, 기본 2) |
+| `--padding` | 결과 주변에 남길 여백 픽셀 수 |
+| `-f, --force` | 출력 파일이 이미 있어도 덮어쓰기 |
+
 ### `resize` — 크기 조정
 
 ```bash
@@ -152,6 +174,7 @@ src/imgedit/
   core/resize.py              # resize 알고리즘
   commands/color_to_alpha.py  # color-to-alpha CLI 서브커맨드
   commands/crop.py            # crop CLI 서브커맨드
+  commands/trim.py            # trim CLI 서브커맨드 (autocrop 재사용)
   commands/resize.py          # resize CLI 서브커맨드
 tests/
 ```

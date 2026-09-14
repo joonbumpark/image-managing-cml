@@ -6,6 +6,7 @@ from imgedit import __version__
 from imgedit.commands.color_to_alpha import color_to_alpha_command
 from imgedit.commands.crop import crop_command
 from imgedit.commands.resize import resize_command
+from imgedit.commands.trim import trim_command
 
 
 @click.group()
@@ -21,6 +22,7 @@ def main() -> None:
 main.add_command(color_to_alpha_command)
 main.add_command(crop_command)
 main.add_command(resize_command)
+main.add_command(trim_command)
 
 
 if __name__ == "__main__":
