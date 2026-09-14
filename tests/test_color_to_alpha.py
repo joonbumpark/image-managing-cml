@@ -5,7 +5,12 @@ import pytest
 from PIL import Image
 
 from imgedit.color_utils import ParseError, parse_hex_color, parse_xy
-from imgedit.core.color_to_alpha import color_to_alpha, sample_corner_color, sample_pixel_color
+from imgedit.core.color_to_alpha import (
+    color_to_alpha,
+    color_to_alpha_gimp,
+    sample_corner_color,
+    sample_pixel_color,
+)
 
 
 def _solid(color, size=(8, 8), mode="RGB"):
@@ -80,6 +85,43 @@ class TestColorToAlpha:
     def test_output_is_rgba(self):
         img = _solid((1, 2, 3))
         out = color_to_alpha(img, (1, 2, 3))
+        assert out.mode == "RGBA"
+
+
+class TestColorToAlphaGimp:
+    def test_exact_target_becomes_fully_transparent(self):
+        img = _solid((10, 20, 30), mode="RGBA")
+        out = color_to_alpha_gimp(img, (10, 20, 30))
+        arr = np.asarray(out)
+        assert (arr[..., 3] == 0).all()
+
+    def test_far_color_stays_opaque_and_unchanged(self):
+        img = _solid((0, 0, 0), mode="RGBA")
+        out = color_to_alpha_gimp(img, (255, 255, 255))
+        arr = np.asarray(out)
+        assert (arr[..., 3] == 255).all()
+        assert (arr[..., :3] == 0).all()
+
+    def test_recovers_foreground_color_and_alpha(self):
+        # A red foreground pixel blended 50/50 with a white key color:
+        # observed = 0.5*red + 0.5*white = (255, 128, 128).
+        img = Image.new("RGBA", (1, 1), (255, 128, 128, 255))
+        out = color_to_alpha_gimp(img, (255, 255, 255))
+        r, g, b, a = out.getpixel((0, 0))
+        assert a == pytest.approx(128, abs=3)
+        assert r == pytest.approx(255, abs=3)
+        assert g == pytest.approx(0, abs=3)
+        assert b == pytest.approx(0, abs=3)
+
+    def test_preserves_existing_alpha(self):
+        img = Image.new("RGBA", (2, 2), (0, 0, 0, 100))
+        out = color_to_alpha_gimp(img, (255, 255, 255))
+        arr = np.asarray(out)
+        assert (arr[..., 3] == 100).all()
+
+    def test_output_is_rgba(self):
+        img = _solid((1, 2, 3))
+        out = color_to_alpha_gimp(img, (1, 2, 3))
         assert out.mode == "RGBA"
 
 

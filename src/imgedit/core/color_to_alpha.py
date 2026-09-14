@@ -69,6 +69,48 @@ def color_to_alpha(
     return Image.fromarray(np.round(out).astype(np.uint8), mode="RGBA")
 
 
+def color_to_alpha_gimp(image: Image.Image, target_color: RGB) -> Image.Image:
+    """Remove a target color from `image`, the way GIMP's "Color to Alpha" does.
+
+    Unlike `color_to_alpha`, this isn't a threshold: every pixel is treated
+    as a blend of the target color and some "true" foreground color, and the
+    minimum alpha/foreground-color combination that could reproduce the
+    pixel is solved for per RGB channel. This removes color fringing from
+    anti-aliased or semi-transparent edges (e.g. a soft-edged white glow on
+    a white background) that a plain tolerance cutoff leaves behind, at the
+    cost of being fully automatic: there's no tolerance/feather to tune.
+
+    Args:
+        image: source image (any Pillow mode; converted to RGBA internally).
+        target_color: the (r, g, b) color to remove, each channel 0-255.
+
+    Returns:
+        A new RGBA image; `image` is not modified.
+    """
+    eps = 1e-6
+    arr = np.asarray(image.convert("RGBA"), dtype=np.float64) / 255.0
+    rgb = arr[..., :3]
+    orig_alpha = arr[..., 3]
+    key = np.asarray(target_color, dtype=np.float64) / 255.0
+
+    # Per-channel alpha needed to explain this pixel as (key blended with
+    # some in-[0,1] foreground color) at that alpha, one-sided each way.
+    above = (rgb - key) / np.clip(1.0 - key, eps, None)
+    below = (key - rgb) / np.clip(key, eps, None)
+    channel_alpha = np.clip(np.where(rgb > key, above, np.where(rgb < key, below, 0.0)), 0.0, 1.0)
+
+    alpha = np.max(channel_alpha, axis=-1)
+    alpha_safe = np.where(alpha > eps, alpha, 1.0)  # avoid div-by-zero; result unused where alpha ~ 0
+
+    new_rgb = np.clip((rgb - key) / alpha_safe[..., np.newaxis] + key, 0.0, 1.0)
+    new_rgb = np.where(alpha[..., np.newaxis] > eps, new_rgb, key)
+
+    out = np.empty_like(arr)
+    out[..., :3] = new_rgb
+    out[..., 3] = alpha * orig_alpha
+    return Image.fromarray(np.round(np.clip(out * 255.0, 0, 255)).astype(np.uint8), mode="RGBA")
+
+
 def sample_pixel_color(image: Image.Image, xy: tuple[int, int]) -> RGB:
     """Read the RGB color of a single pixel."""
     x, y = xy

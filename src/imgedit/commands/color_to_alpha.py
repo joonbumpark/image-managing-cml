@@ -6,7 +6,12 @@ import click
 from PIL import Image
 
 from imgedit.color_utils import ParseError, format_hex_color, parse_hex_color, parse_xy
-from imgedit.core.color_to_alpha import color_to_alpha, sample_corner_color, sample_pixel_color
+from imgedit.core.color_to_alpha import (
+    color_to_alpha,
+    color_to_alpha_gimp,
+    sample_corner_color,
+    sample_pixel_color,
+)
 
 
 def _default_output_path(input_path: Path) -> Path:
@@ -41,18 +46,30 @@ def _default_output_path(input_path: Path) -> Path:
     help="Sample the target color from an image corner instead of --color.",
 )
 @click.option(
+    "--algorithm",
+    "algorithm",
+    type=click.Choice(["tolerance", "gimp"]),
+    default="tolerance",
+    show_default=True,
+    help=(
+        "'tolerance': hard/feathered cutoff by color distance (tunable). "
+        "'gimp': GIMP-style color decontamination (fully automatic, no "
+        "tolerance/feather; also cleans up color fringing on soft edges)."
+    ),
+)
+@click.option(
     "--tolerance",
     type=click.FloatRange(0, 100),
     default=10.0,
     show_default=True,
-    help="Percent color distance treated as an exact match (-> fully transparent).",
+    help="Percent color distance treated as an exact match (-> fully transparent). Ignored by --algorithm gimp.",
 )
 @click.option(
     "--feather",
     type=click.FloatRange(min=0),
     default=5.0,
     show_default=True,
-    help="Extra percent beyond --tolerance over which alpha fades in smoothly. Use 0 for a hard edge.",
+    help="Extra percent beyond --tolerance over which alpha fades in smoothly. Use 0 for a hard edge. Ignored by --algorithm gimp.",
 )
 @click.option(
     "-f",
@@ -66,6 +83,7 @@ def color_to_alpha_command(
     color_hex: str | None,
     pick_xy: str | None,
     from_corner: str | None,
+    algorithm: str,
     tolerance: float,
     feather: float,
     force: bool,
@@ -83,6 +101,7 @@ def color_to_alpha_command(
       imgedit color-to-alpha art.png --color "#ffffff" --tolerance 15
       imgedit color-to-alpha art.png --pick 2,2 --tolerance 8 --feather 4
       imgedit color-to-alpha art.png --from-corner bottom-right -o out.png
+      imgedit color-to-alpha art.png --algorithm gimp --color "#ffffff"
     """
     selectors = [
         ("--color", color_hex),
@@ -112,12 +131,15 @@ def color_to_alpha_command(
     except (ParseError, ValueError) as exc:
         raise click.UsageError(str(exc)) from exc
 
-    result = color_to_alpha(
-        image,
-        target_color=target_color,
-        tolerance=tolerance,
-        feather=feather,
-    )
+    if algorithm == "gimp":
+        result = color_to_alpha_gimp(image, target_color=target_color)
+    else:
+        result = color_to_alpha(
+            image,
+            target_color=target_color,
+            tolerance=tolerance,
+            feather=feather,
+        )
 
     out_path = output_path or _default_output_path(input_path)
     if out_path.exists() and not force:
@@ -127,5 +149,5 @@ def color_to_alpha_command(
     result.save(out_path)
 
     click.echo(f"target color: {source_desc}")
-    click.echo(f"tolerance={tolerance}%  feather={feather}%")
+    click.echo(f"algorithm={algorithm}" + ("" if algorithm == "gimp" else f"  tolerance={tolerance}%  feather={feather}%"))
     click.echo(f"saved: {out_path}")
