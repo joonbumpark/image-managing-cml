@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "imgedit"
+version = "0.1.0"
+description = "Command-line image editing toolbox, built for editing AI-generated images."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+imgedit = "imgedit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
